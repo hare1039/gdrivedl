@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 import argparse
 import os
@@ -47,8 +48,9 @@ if __name__ == "__main__":
     if not args.url:
         assert False, "[ERROR] Give me a link"
     if not args.s:
-        args.s = ""
+        args.s = "http://127.0.0.1:4444/wd/hub"
     profile = webdriver.FirefoxProfile()
+    profile.set_preference("intl.accept_languages", "zh_TW.UTF-8")
     profile.set_preference("browser.download.folderList", 2)
     profile.set_preference("browser.download.manager.showWhenStarting", False)
     profile.set_preference("browser.download.dir", args.d)
@@ -86,6 +88,7 @@ if __name__ == "__main__":
                     print("[WARNING] waiting expired")
 
                 wait_dl(args.d, filename)
+                print(filename)
             else:
                 print("[ERROR] skip download of " + filename)
 
