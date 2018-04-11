@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
+import atexit
 import sys
 import argparse
 import os
 import getpass
 import time
+import signal
 from pathlib import Path
 from pprint import pprint
 from selenium import webdriver
@@ -24,7 +26,12 @@ def should_skip(directory, filename):
     target = Path(abs_path(directory, filename))
     return target.is_file()
 
+def stop_waiting(signum, frame):
+    raise Exception("End of time")
+
 def wait_dl(directory, filename):
+    if ".txt" in filename:
+        signal.alarm(60)
     while True:
         if Path(abs_path(directory, filename)).is_file():
             break
@@ -34,6 +41,9 @@ def wait_dl(directory, filename):
         if not Path(abs_path(directory, filename) + ".part").is_file():
             break;
     time.sleep(5)
+
+def cleanup(driver):
+    driver.quit()
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
@@ -61,11 +71,18 @@ if __name__ == "__main__":
         desired_capabilities=DesiredCapabilities.FIREFOX,
         browser_profile=profile
     )
+    atexit.register(cleanup, driver)
+    signal.signal(signal.SIGALRM, stop_waiting)
 
     for url in args.url:
         driver.get(url)
         dl_list = driver.find_elements(By.XPATH, "//*[@data-target='download']")
         for ii in dl_list:
+            # press escape 3 times so the page will on select page
+            ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+            ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+            ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+
             ActionChains(driver).click(ii.find_element(By.XPATH, "..")).perform()
             ActionChains(driver).move_by_offset(10, 10).perform()
 
@@ -80,16 +97,16 @@ if __name__ == "__main__":
                 try:
                     element_present = EC.presence_of_element_located((By.XPATH, "//button[@name='ok' and @tabindex='0']"))
                     WebDriverWait(driver, 5).until(element_present)
-                    
+
                     driver.find_element(By.XPATH, "//button[@name='ok' and @tabindex='0']").click()
                 except ElementNotInteractableException:
                     print("[WARNING] no ok button")
                 except TimeoutException:
                     print("[WARNING] waiting expired")
-
-                wait_dl(args.d, filename)
+                try:
+                    wait_dl(args.d, filename)
+                except Exception:
+                    print("[ERROR] waiting 60s and expired")
                 print(filename)
             else:
                 print("[ERROR] skip download of " + filename)
-
-    driver.quit()
