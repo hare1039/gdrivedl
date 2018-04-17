@@ -31,11 +31,18 @@ def stop_waiting(signum, frame):
 
 def wait_dl(directory, filename):
     if ".txt" in filename:
-        signal.alarm(60)
-    while True:
+        signal.alarm(10)
+
+    # wait 10 sec for empty file creation
+    created = False
+    for timecount in range(int(10 / 0.05)):
         if Path(abs_path(directory, filename)).is_file():
+            created = True
             break
         time.sleep(0.05)
+    if not created:
+        raise Exception("Download file creation end of time")
+
     while int(os.path.getsize(abs_path(directory, filename))) == 0:
         time.sleep(0.5)
         if not Path(abs_path(directory, filename) + ".part").is_file():
@@ -52,7 +59,6 @@ if __name__ == "__main__":
     p.add_argument("url", nargs="*")
     args = p.parse_args()
 
-
     if not args.d:
         args.d = os.getcwd()
     if not args.url:
@@ -64,14 +70,14 @@ if __name__ == "__main__":
     profile.set_preference("browser.download.folderList", 2)
     profile.set_preference("browser.download.manager.showWhenStarting", False)
     profile.set_preference("browser.download.dir", args.d)
-    profile.set_preference("browser.helperApps.neverAsk.saveToDisk", "text/plain;text/html;text/css;text/javascript;image/gif;image/png;image/jpeg;image/bmp;image/webp;video/webm;video/ogg;audio/midi;audio/mpeg;audio/webm;audio/ogg;audio/wav;video/mp4;application/octet-stream;application/mp4")
+    profile.set_preference("browser.helperApps.neverAsk.saveToDisk", "text/plain;text/html;text/css;text/javascript;image/gif;image/png;image/jpeg;image/bmp;image/webp;video/webm;video/ogg;audio/midi;audio/mpeg;audio/webm;audio/ogg;audio/wav;video/mp4;application/octet-stream;application/mp4;video/x-webm;video/x-sgi-movie;video/x-mpeg;video/mpg;video/quicktime;video/mpeg4;video/x-matroska")
 
     driver = webdriver.Remote (
         command_executor=args.s,
         desired_capabilities=DesiredCapabilities.FIREFOX,
         browser_profile=profile
     )
-    atexit.register(cleanup, driver)
+#    atexit.register(cleanup, driver)
     signal.signal(signal.SIGALRM, stop_waiting)
 
     for url in args.url:
@@ -93,20 +99,29 @@ if __name__ == "__main__":
 
             if not should_skip(args.d, filename):
                 # download part
-                ActionChains(driver).click(ii).perform()
-                try:
-                    element_present = EC.presence_of_element_located((By.XPATH, "//button[@name='ok' and @tabindex='0']"))
-                    WebDriverWait(driver, 5).until(element_present)
-
-                    driver.find_element(By.XPATH, "//button[@name='ok' and @tabindex='0']").click()
-                except ElementNotInteractableException:
-                    print("[WARNING] no ok button")
-                except TimeoutException:
-                    print("[WARNING] waiting expired")
-                try:
-                    wait_dl(args.d, filename)
-                except Exception:
-                    print("[ERROR] waiting 60s and expired")
-                print(filename)
+                tries = 0
+                while True:
+                    ActionChains(driver).click(ii).perform()
+                    try:
+                        element_present = EC.presence_of_element_located((By.XPATH, "//button[@name='ok' and @tabindex='0']"))
+                        WebDriverWait(driver, 5).until(element_present)
+                        
+                        driver.find_element(By.XPATH, "//button[@name='ok' and @tabindex='0']").click()
+                    except TimeoutException:
+                        print("[WARNING] no ok button")
+                        
+                    try:
+                        wait_dl(args.d, filename)
+                    except Exception as e:
+                        print("[ERROR] download expired. Why: " + repr(e) + ". Tries #" + str(tries))
+                        ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+                        tries += 1
+                        if tries < 3:
+                            continue
+                        else:
+                            print("[ERROR] giving up on tries #" + str(tries))
+                            break
+                    print(filename)
+                    break
             else:
                 print("[ERROR] skip download of " + filename)
