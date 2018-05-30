@@ -6,6 +6,7 @@ import os
 import getpass
 import time
 import signal
+import subprocess
 from pathlib import Path
 from pprint import pprint
 from selenium import webdriver
@@ -23,8 +24,8 @@ def abs_path(directory, filename):
     return directory + filename
 
 def should_skip(directory, filename):
-    target = Path(abs_path(directory, filename))
-    return target.is_file()
+    abp = abs_path(directory, filename)
+    return Path(abp).is_file()
 
 def stop_waiting(signum, frame):
     raise Exception("End of time")
@@ -49,6 +50,14 @@ def wait_dl(directory, filename):
             break;
     time.sleep(5)
 
+def check_error(cmd):
+    if cmd == "":
+        return
+    return_code = subprocess.call(args.t, shell=True)
+    if return_code != 0:
+        print("[ERROR] terminator return non 0; exit;")
+        sys.exit(return_code)
+
 def cleanup(driver):
     driver.quit()
 
@@ -56,6 +65,7 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("-d", nargs="?", help="download directory, default: ${PWD}")
     p.add_argument("-s", nargs="?", help="selenium driver host, default: http://127.0.0.1:4444/wd/hub")
+    p.add_argument("-t", nargs="?", help="terminate if this command return non zero, default: ''")
     p.add_argument("url", nargs="*")
     args = p.parse_args()
 
@@ -65,6 +75,9 @@ if __name__ == "__main__":
         assert False, "[ERROR] Give me a link"
     if not args.s:
         args.s = "http://127.0.0.1:4444/wd/hub"
+
+    check_error(args.t)
+
     profile = webdriver.FirefoxProfile()
     profile.set_preference("intl.accept_languages", "zh_TW.UTF-8")
     profile.set_preference("browser.download.folderList", 2)
@@ -77,13 +90,14 @@ if __name__ == "__main__":
         desired_capabilities=DesiredCapabilities.FIREFOX,
         browser_profile=profile
     )
-#    atexit.register(cleanup, driver)
+    atexit.register(cleanup, driver)
     signal.signal(signal.SIGALRM, stop_waiting)
 
     for url in args.url:
         driver.get(url)
         dl_list = driver.find_elements(By.XPATH, "//*[@data-target='download']")
         for ii in dl_list:
+            check_error(args.t)
             # press escape 3 times so the page will on select page
             ActionChains(driver).send_keys(Keys.ESCAPE).perform()
             ActionChains(driver).send_keys(Keys.ESCAPE).perform()
@@ -100,7 +114,8 @@ if __name__ == "__main__":
             if not should_skip(args.d, filename):
                 # download part
                 tries = 0
-                while True:
+                while tries < 3:
+                    check_error(args.t)
                     ActionChains(driver).click(ii).perform()
                     try:
                         element_present = EC.presence_of_element_located((By.XPATH, "//button[@name='ok' and @tabindex='0']"))
@@ -121,7 +136,8 @@ if __name__ == "__main__":
                         else:
                             print("[ERROR] giving up on tries #" + str(tries))
                             break
-                    print(filename)
+                    if filename != "": 
+                        print(filename)
                     break
             else:
-                print("[ERROR] skip download of " + filename)
+                print("[ERROR] skipping download on " + filename)
