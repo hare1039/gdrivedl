@@ -65,7 +65,7 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("-d", nargs="?", help="download directory, default: ${PWD}")
     p.add_argument("-s", nargs="?", help="selenium driver host, default: http://127.0.0.1:4444/wd/hub")
-    p.add_argument("-t", nargs="?", help="terminate if this command return non zero, default: ''")
+    p.add_argument("-t", nargs="?", help="terminate if this command return non zero, default: 'true'")
     p.add_argument("url", nargs="*")
     args = p.parse_args()
 
@@ -75,7 +75,9 @@ if __name__ == "__main__":
         assert False, "[ERROR] Give me a link"
     if not args.s:
         args.s = "http://127.0.0.1:4444/wd/hub"
-
+    if not args.t:
+        args.t = "true"
+    
     check_error(args.t)
 
     profile = webdriver.FirefoxProfile()
@@ -90,6 +92,7 @@ if __name__ == "__main__":
         desired_capabilities=DesiredCapabilities.FIREFOX,
         browser_profile=profile
     )
+    driver.set_window_size(3840, 2160)
     atexit.register(cleanup, driver)
     signal.signal(signal.SIGALRM, stop_waiting)
 
