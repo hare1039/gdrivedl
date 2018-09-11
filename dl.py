@@ -85,15 +85,15 @@ if __name__ == "__main__":
     profile.set_preference("browser.download.folderList", 2)
     profile.set_preference("browser.download.manager.showWhenStarting", False)
     profile.set_preference("browser.download.dir", args.d)
-    profile.set_preference("browser.helperApps.neverAsk.saveToDisk", "text/plain;text/html;text/css;text/javascript;image/gif;image/png;image/jpeg;image/bmp;image/webp;video/webm;video/ogg;audio/midi;audio/mpeg;audio/webm;audio/ogg;audio/wav;video/mp4;application/octet-stream;application/mp4;video/x-webm;video/x-sgi-movie;video/x-mpeg;video/mpg;video/quicktime;video/mpeg4;video/x-matroska")
+    profile.set_preference("browser.helperApps.neverAsk.saveToDisk", "application/rar;application/zip;application/octet-stream;application/x-zip-compressed;multipart/x-zip;application/x-rar-compressed;application/octet-stream;text/plain;text/html;text/css;text/javascript;image/gif;image/png;image/jpeg;image/bmp;image/webp;video/webm;video/ogg;audio/midi;audio/mpeg;audio/webm;audio/ogg;audio/wav;video/mp4;application/octet-stream;application/mp4;video/x-webm;video/x-sgi-movie;video/x-mpeg;video/mpg;video/quicktime;video/mpeg4;video/x-matroska")
 
     driver = webdriver.Remote (
         command_executor=args.s,
         desired_capabilities=DesiredCapabilities.FIREFOX,
         browser_profile=profile
     )
-    driver.set_window_size(3840, 2160)
     atexit.register(cleanup, driver)
+    driver.set_window_size(3840, 2160)
     signal.signal(signal.SIGALRM, stop_waiting)
 
     for url in args.url:
